@@ -38,6 +38,8 @@ A small set of hand-written client scripts (the service worker scripts under `st
 
 Most of the application (editors, runtime, server) is written in CoffeeScript and compiled to JavaScript via `npm run compile`; this is unaffected by the TypeScript setup.
 
+Some leaf CoffeeScript modules with few dependents are being incrementally converted to TypeScript as well (e.g. `static/js/util/random.coffee` → `ts-src/js/util/random.ts`), following the same pattern as the service worker scripts: the `.coffee` source is removed, its `.ts` replacement mirrors the original file path 1:1 under `ts-src/`, and it is compiled to the exact same `static/*.js` output path so no other file (e.g. `server/concatenator.coffee`) needs to change. Since the project has no bundler or module system — compiled/concatenated scripts share a single global scope (see `server/concatenator.coffee`) — converted TypeScript modules keep emitting plain global-scope classes/declarations, not ES modules.
+
 ### Configuration
 To use specific configuration options, create a JSON file `config.json` in the root folder (same folder as this README.md).
 You can find partial examples in this folder as config_local.json and config_prod.json.
