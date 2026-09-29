@@ -37,11 +37,14 @@
   },
   "devDependencies": {
     "coffeescript": "^1.12.7",
-    "concurrently": "^6.2.0"
+    "concurrently": "^6.2.0",
+    "typescript": "^7.0.2"
   },
   "scripts": {
-    "compile": "coffee -c --no-header -b ../.",
+    "compile": "coffee -c --no-header -b ../. && npm run compile-ts",
     "compile-and-watch": "coffee -c --no-header -b -w ../.",
+    "compile-ts": "tsc -p ../tsconfig.json",
+    "typecheck": "tsc -p ../tsconfig.json --noEmit",
     "dev": "npm run compile && concurrently \"npm:compile-and-watch\" \"npm:start\"",
     "start": "node app.js",
     "test": "echo \"Error: no test specified\" && exit 1"

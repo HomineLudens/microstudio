@@ -31,6 +31,13 @@ You can clone this repository and start your own microStudio server, for a team 
 For active development use:
 * `npm run dev` instead of `npm start`
 
+### TypeScript
+A small set of hand-written client scripts (the service worker scripts under `static/`) are written in TypeScript, under the `ts-src/` folder at the root of the repository. They are compiled to their committed `static/*.js` counterparts as part of `npm run compile` (and therefore `npm run dev`).
+* `npm run compile-ts` compiles the TypeScript sources into `static/`
+* `npm run typecheck` type-checks the TypeScript sources without emitting output
+
+Most of the application (editors, runtime, server) is written in CoffeeScript and compiled to JavaScript via `npm run compile`; this is unaffected by the TypeScript setup.
+
 ### Configuration
 To use specific configuration options, create a JSON file `config.json` in the root folder (same folder as this README.md).
 You can find partial examples in this folder as config_local.json and config_prod.json.
