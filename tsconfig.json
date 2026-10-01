@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["ES2017", "WebWorker"],
+    "rootDir": "ts-src",
+    "outDir": "static",
+    "strict": true,
+    "noEmitOnError": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": [
+    "ts-src/sw.ts",
+    "ts-src/app_sw.ts",
+    "ts-src/community/forum_sw.ts",
+    "ts-src/fr/community/forum_sw.ts"
+  ]
+}

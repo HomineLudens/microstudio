@@ -1,21 +1,20 @@
-this.Levels = (function() {
-  function _Class() {
-    var i, j, sum;
-    this.total_cost = [];
-    sum = 0;
-    for (i = j = 0; j <= 499; i = j += 1) {
-      sum += this.costOfLevelUp(i);
-      this.total_cost[i] = sum;
+"use strict";
+// XP-to-level-up cost table, precomputed for levels 0-499.
+// Plain Node CommonJS module (not part of the browser concatenation
+// bundles — required directly via server/gamify/userprogress.coffee).
+// The original CoffeeScript exports a singleton instance (`new @Levels()`),
+// not the class itself.
+class Levels {
+    constructor() {
+        this.total_cost = [];
+        let sum = 0;
+        for (let i = 0; i <= 499; i += 1) {
+            sum += this.costOfLevelUp(i);
+            this.total_cost[i] = sum;
+        }
     }
-  }
-
-  _Class.prototype.costOfLevelUp = function(from_level) {
-    var xp;
-    return xp = (from_level + 5) * (from_level + 5) * 20;
-  };
-
-  return _Class;
-
-})();
-
-module.exports = new this.Levels();
+    costOfLevelUp(from_level) {
+        return (from_level + 5) * (from_level + 5) * 20;
+    }
+}
+module.exports = new Levels();

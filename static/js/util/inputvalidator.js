@@ -1,167 +1,119 @@
-this.InputValidator = (function() {
-  function InputValidator(fields, button, error, callback) {
-    var f, j, len, ref;
-    this.fields = fields;
-    this.button = button;
-    this.error = error;
-    this.callback = callback;
-    if (!Array.isArray(this.fields)) {
-      this.fields = [this.fields];
+"use strict";
+this.InputValidator = class InputValidator {
+    constructor(fields, button, error, callback) {
+        this.initial = [];
+        this.error_timeout = null;
+        this.change_timeout = null;
+        this.accept_initial = false;
+        this.auto_reset = true;
+        this.fields = Array.isArray(fields) ? fields : [fields];
+        this.button = button;
+        this.error = error;
+        this.callback = callback;
+        this.initial = [];
+        for (const f of this.fields) {
+            this.initial.push(f.value);
+            f.addEventListener("input", () => this.change());
+            f.addEventListener("keydown", ((event) => {
+                if (event.key === "Enter") {
+                    this.validate();
+                }
+                else if (event.key === "Escape" && this.auto_reset) {
+                    this.reset();
+                }
+            }));
+        }
+        this.button.addEventListener("click", () => this.validate());
+        this.button.style.width = 0;
+        if (this.error != null) {
+            this.error.style.width = 0;
+        }
+        this.error_timeout = null;
+        this.change_timeout = null;
+        this.accept_initial = false;
+        this.auto_reset = true;
     }
-    this.initial = [];
-    ref = this.fields;
-    for (j = 0, len = ref.length; j < len; j++) {
-      f = ref[j];
-      this.initial.push(f.value);
-      f.addEventListener("input", (function(_this) {
-        return function() {
-          return _this.change();
-        };
-      })(this));
-      f.addEventListener("keydown", (function(_this) {
-        return function(event) {
-          if (event.key === "Enter") {
-            return _this.validate();
-          } else if (event.key === "Escape" && _this.auto_reset) {
-            return _this.reset();
-          }
-        };
-      })(this));
+    set(values) {
+        if (!Array.isArray(values)) {
+            values = [values];
+        }
+        this.initial = [];
+        for (let i = 0; i < this.fields.length; i++) {
+            this.initial.push((this.fields[i].value = values[i]));
+        }
     }
-    this.button.addEventListener("click", (function(_this) {
-      return function() {
-        return _this.validate();
-      };
-    })(this));
-    this.button.style.width = 0;
-    if (this.error != null) {
-      this.error.style.width = 0;
+    reset() {
+        for (let i = 0; i < this.fields.length; i++) {
+            this.fields[i].value = this.initial[i];
+            this.fields[i].blur();
+        }
+        this.button.style.width = "0px";
     }
-    this.error_timeout = null;
-    this.change_timeout = null;
-    this.accept_initial = false;
-    this.auto_reset = true;
-  }
-
-  InputValidator.prototype.set = function(values) {
-    var f, i, j, len, ref;
-    if (!Array.isArray(values)) {
-      values = [values];
+    update() {
+        for (let i = 0; i < this.fields.length; i++) {
+            this.initial[i] = this.fields[i].value;
+        }
+        this.button.style.width = "0px";
     }
-    this.initial = [];
-    ref = this.fields;
-    for (i = j = 0, len = ref.length; j < len; i = ++j) {
-      f = ref[i];
-      this.initial.push(f.value = values[i]);
+    check() {
+        if (this.regex == null) {
+            return true;
+        }
+        for (const f of this.fields) {
+            if (!this.regex.test(f.value)) {
+                return false;
+            }
+        }
+        return true;
     }
-  };
-
-  InputValidator.prototype.reset = function() {
-    var f, i, j, len, ref;
-    ref = this.fields;
-    for (i = j = 0, len = ref.length; j < len; i = ++j) {
-      f = ref[i];
-      f.value = this.initial[i];
-      f.blur();
+    change() {
+        if (this.error != null) {
+            this.error.style.width = 0;
+        }
+        let change = this.accept_initial;
+        for (let i = 0; i < this.fields.length; i++) {
+            if (this.fields[i].value !== this.initial[i]) {
+                change = true;
+            }
+        }
+        if (change && this.check()) {
+            this.button.style.removeProperty("width");
+            if (this.change_timeout != null) {
+                clearTimeout(this.change_timeout);
+            }
+            if (this.auto_reset) {
+                this.change_timeout = setTimeout(() => {
+                    this.reset();
+                    this.change_timeout = null;
+                }, 10000);
+            }
+        }
+        else {
+            this.button.style.width = "0px";
+        }
     }
-    return this.button.style.width = "0px";
-  };
-
-  InputValidator.prototype.update = function() {
-    var f, i, j, len, ref;
-    ref = this.fields;
-    for (i = j = 0, len = ref.length; j < len; i = ++j) {
-      f = ref[i];
-      this.initial[i] = f.value;
+    cancelChange() {
+        this.button.style.width = 0;
     }
-    return this.button.style.width = "0px";
-  };
-
-  InputValidator.prototype.check = function() {
-    var f, j, len, ref;
-    if (this.regex == null) {
-      return true;
+    showError(text) {
+        if (this.error == null) {
+            return;
+        }
+        this.error.innerText = text;
+        this.error.style.width = "auto";
+        if (this.error_timeout) {
+            clearTimeout(this.error_timeout);
+        }
+        this.error_timeout = setTimeout(() => {
+            this.error.style.width = "0";
+            this.error_timeout = null;
+        }, 5000);
     }
-    ref = this.fields;
-    for (j = 0, len = ref.length; j < len; j++) {
-      f = ref[j];
-      if (!this.regex.test(f.value)) {
-        return false;
-      }
+    validate() {
+        if (this.change_timeout != null) {
+            clearTimeout(this.change_timeout);
+        }
+        this.callback(this.fields.map((f) => f.value));
+        this.button.style.width = "0px";
     }
-    return true;
-  };
-
-  InputValidator.prototype.change = function() {
-    var change, f, i, j, len, ref;
-    if (this.error != null) {
-      this.error.style.width = 0;
-    }
-    change = this.accept_initial;
-    ref = this.fields;
-    for (i = j = 0, len = ref.length; j < len; i = ++j) {
-      f = ref[i];
-      if (f.value !== this.initial[i]) {
-        change = true;
-      }
-    }
-    if (change && this.check()) {
-      this.button.style.removeProperty("width");
-      if (this.change_timeout != null) {
-        clearTimeout(this.change_timeout);
-      }
-      if (this.auto_reset) {
-        return this.change_timeout = setTimeout(((function(_this) {
-          return function() {
-            _this.reset();
-            return _this.change_timeout = null;
-          };
-        })(this)), 10000);
-      }
-    } else {
-      return this.button.style.width = "0px";
-    }
-  };
-
-  InputValidator.prototype.cancelChange = function() {
-    return this.button.style.width = 0;
-  };
-
-  InputValidator.prototype.showError = function(text) {
-    if (this.error == null) {
-      return;
-    }
-    this.error.innerText = text;
-    this.error.style.width = "auto";
-    if (this.error_timeout) {
-      clearTimeout(this.error_timeout);
-    }
-    return this.error_timeout = setTimeout(((function(_this) {
-      return function() {
-        _this.error.style.width = "0";
-        return _this.error_timeout = null;
-      };
-    })(this)), 5000);
-  };
-
-  InputValidator.prototype.validate = function() {
-    var f;
-    if (this.change_timeout != null) {
-      clearTimeout(this.change_timeout);
-    }
-    this.callback((function() {
-      var j, len, ref, results;
-      ref = this.fields;
-      results = [];
-      for (j = 0, len = ref.length; j < len; j++) {
-        f = ref[j];
-        results.push(f.value);
-      }
-      return results;
-    }).call(this));
-    return this.button.style.width = "0px";
-  };
-
-  return InputValidator;
-
-})();
+};

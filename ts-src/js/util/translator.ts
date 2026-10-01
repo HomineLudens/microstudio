@@ -1,0 +1,98 @@
+// Client-side i18n helper: loads/caches translation strings for the app,
+// and (for admin users) reports untranslated strings back to the server.
+// Loaded as a plain (non-module) script — see server/concatenator.coffee.
+// `class @Translator` compiles to `this.Translator = ...` (a property
+// assignment on the global object, safe — see undo.ts).
+(this as any).Translator = class Translator {
+  app: any;
+  lang: string;
+  language: { [key: string]: string } | undefined;
+  incomplete: { [key: string]: boolean };
+  list?: { [key: string]: boolean };
+  list_fetched?: boolean;
+
+  constructor(app: any) {
+    this.app = app;
+    this.lang = (document.children[0] as HTMLElement).lang;
+    this.language = (window as any).translation;
+    this.incomplete = {};
+    if (document.cookie != null && document.cookie.indexOf("language=") >= 0) {
+      const index = document.cookie.indexOf("language=") + "language=".length;
+      this.lang = document.cookie.substring(index, index + 2);
+    }
+    //else if navigator.languages? and navigator.languages[0]?
+    //  @lang = navigator.languages[0].split("-")[0]
+
+    setInterval(() => this.check(), 5000);
+  }
+
+  load(callback?: () => void): void {
+    if (this.language != null) {
+      return;
+    }
+    this.app.client.sendRequest(
+      {
+        name: "get_language",
+        language: this.lang,
+      },
+      (msg: any) => {
+        try {
+          this.language = JSON.parse(msg.language);
+        } catch (err) {
+          // ignore parse errors, keep language unset
+        }
+        if (callback != null) {
+          callback();
+        }
+      }
+    );
+  }
+
+  get(text: string): string {
+    if (this.language != null) {
+      const value = this.language[text];
+      if (value == null) {
+        this.incomplete[text] = true;
+        return text;
+      } else {
+        return value;
+      }
+    } else {
+      return text;
+    }
+  }
+
+  check(): void {
+    if (this.app.user != null && this.app.user.flags != null && this.app.user.flags.admin) {
+      if (!this.list_fetched) {
+        this.list_fetched = true;
+        this.app.client.sendRequest({ name: "get_translation_list" }, (msg: any) => {
+          this.list = msg.list;
+        });
+      }
+
+      if (this.list != null) {
+        for (const text in this.incomplete) {
+          if (this.list[text] == null) {
+            this.app.client.sendRequest({
+              name: "add_translation",
+              source: text,
+            });
+            this.list[text] = true;
+          }
+        }
+      }
+    }
+    return;
+  }
+
+  translatorLanguage(): string | null {
+    for (const key in this.app.user.flags) {
+      const value = this.app.user.flags[key];
+      if (key.startsWith("translator_") && value) {
+        return key.split("-")[1];
+      }
+    }
+    return null;
+  }
+};

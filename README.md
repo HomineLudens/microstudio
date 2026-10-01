@@ -31,6 +31,18 @@ You can clone this repository and start your own microStudio server, for a team 
 For active development use:
 * `npm run dev` instead of `npm start`
 
+### TypeScript
+A small set of hand-written client scripts (the service worker scripts under `static/`) are written in TypeScript, under the `ts-src/` folder at the root of the repository. They are compiled to their committed `static/*.js` counterparts as part of `npm run compile` (and therefore `npm run dev`).
+* `npm run compile-ts` compiles the TypeScript sources into `static/`/`server/` (via three separate `tsconfig*.json` projects, see below)
+* `npm run typecheck` type-checks the TypeScript sources without emitting output
+
+Most of the application (editors, runtime, server) is written in CoffeeScript and compiled to JavaScript via `npm run compile`; this is unaffected by the TypeScript setup.
+
+Some leaf CoffeeScript modules with few dependents are being incrementally converted to TypeScript as well, following one of two patterns depending on how the file is loaded:
+
+* **Browser scripts** (e.g. `static/js/util/random.coffee` → `ts-src/js/util/random.ts`, compiled via `tsconfig.json`/`tsconfig.app.json`): the `.coffee` source is removed, its `.ts` replacement mirrors the original file path 1:1 under `ts-src/`, and it is compiled to the exact same `static/*.js` output path so no other file (e.g. `server/concatenator.coffee`) needs to change. Since the project has no bundler or module system for these files — compiled/concatenated scripts share a single global scope (see `server/concatenator.coffee`) — converted TypeScript modules keep emitting plain global-scope classes/declarations, not ES modules (a top-level `var X = ...`/function in the original CoffeeScript must stay `var`/`function`-based in TS, never a native top-level `class`/`const`/`let`, to avoid redeclaration clashes when files are concatenated together).
+* **Server (Node) modules** (e.g. `server/db/record.coffee` → `ts-src/server/db/record.ts`, compiled via `tsconfig.server.json`): these are plain Node `require()`/`module.exports` CommonJS modules, each loaded independently by Node — not concatenated into a shared script scope — so they are written as normal TypeScript modules using `export = ...` (which compiles to `module.exports = ...`), compiled with `"module": "commonjs"` into their original `server/**/*.js` path.
+
 ### Configuration
 To use specific configuration options, create a JSON file `config.json` in the root folder (same folder as this README.md).
 You can find partial examples in this folder as config_local.json and config_prod.json.
