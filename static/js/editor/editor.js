@@ -696,7 +696,7 @@ this.Editor = class Editor extends Manager {
             pos = this.editor.renderer.$cursorLayer.getPixelPosition(range.start, true);
             this.editor.blur();
             this.value_tool = new ColorValueTool(this, pos.left, pos.top, token.token.value, (value) => {
-              value = `\"${value}\"`;
+              value = `"${value}"`;
               return this.editor.session.replace({
                 start: {
                   row: row,
@@ -1159,7 +1159,7 @@ this.Editor = class Editor extends Manager {
         source = this.app.project.getSource(this.selected_source);
         if ((source != null) && !source.fetched) {
           this.editor.setReadOnly(true);
-          return this.showLock(`<i class="fas fa-spinner fa-spin"></i> ` + this.app.translator.get("Loading..."), "hsl(200,50%,50%)");
+          return this.showLock("<i class=\"fas fa-spinner fa-spin\"></i> " + this.app.translator.get("Loading..."), "hsl(200,50%,50%)");
         } else {
           this.hideLock();
           return this.editor.setReadOnly(false);
@@ -1293,7 +1293,7 @@ this.Editor = class Editor extends Manager {
       }, (err, url) => {
         var img;
         if ((err == null) && (url != null)) {
-          img = new Image();
+          img = new Image;
           img.src = url;
           document.getElementById("qrcode-button").innerHTML = "";
           return document.getElementById("qrcode-button").appendChild(img);

@@ -135,6 +135,8 @@ this.Watch = (function() {
     data = msg.data;
     if ((this.hover_expression != null) && (this.hover_callback != null) && data.hasOwnProperty(this.hover_expression)) {
       this.hover_callback(data[this.hover_expression]);
+    } else if ((this.hover_expression != null) && (this.hover_callback != null)) {
+      this.hover_callback(null);
     }
     alive = {};
     for (set_key in data) {
