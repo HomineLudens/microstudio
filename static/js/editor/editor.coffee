@@ -404,7 +404,7 @@ class @Editor extends Manager
     for token in tokens
       token_end = column + token.value.length
       if position.column >= column and position.column < token_end
-        identifier = token.type == "identifier"
+        identifier = token.type.indexOf("identifier") == 0 or token.type == "variable.language"
         break
       column = token_end
     return @clearHoverValue() unless identifier
@@ -455,7 +455,7 @@ class @Editor extends Manager
 
   formatHoverValue:(value,depth=0)->
     return "…" if depth > 2
-    if value?.type?
+    if value?.type? and typeof value.type == "string" and value.hasOwnProperty("value")
       switch value.type
         when "string" then return JSON.stringify(value.value)
         when "number" then return "" + value.value
