@@ -515,7 +515,17 @@ this.Editor = class Editor extends Manager {
     regex = /[a-zA-Z_$][a-zA-Z0-9_$]*(?:\s*\.\s*[a-zA-Z_$][a-zA-Z0-9_$]*)*/g;
     while (match = regex.exec(line)) {
       if (position.column >= match.index && position.column < match.index + match[0].length) {
-        expression = match[0].replace(/\s/g, "");
+        text = match[0];
+        offset = position.column - match.index;
+        segment_end = text.length;
+        re2 = /[a-zA-Z_$][a-zA-Z0-9_$]*/g;
+        while (m2 = re2.exec(text)) {
+          if (offset >= m2.index && offset < m2.index + m2[0].length) {
+            segment_end = m2.index + m2[0].length;
+            break;
+          }
+        }
+        expression = text.substring(0, segment_end).replace(/\s/g, "");
         break;
       }
     }
