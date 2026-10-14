@@ -501,7 +501,7 @@ this.Editor = class Editor extends Manager {
       token = tokens[j];
       token_end = column + token.value.length;
       if (position.column >= column && position.column < token_end) {
-        identifier = token.type === "identifier";
+        identifier = token.type.indexOf("identifier") === 0 || token.type === "variable.language";
         break;
       }
       column = token_end;
@@ -577,7 +577,7 @@ this.Editor = class Editor extends Manager {
     if (depth > 2) {
       return "…";
     }
-    if ((value != null ? value.type : void 0) != null) {
+    if ((value != null ? value.type : void 0) != null && typeof value.type === "string" && Object.prototype.hasOwnProperty.call(value, "value")) {
       switch (value.type) {
         case "string":
           return JSON.stringify(value.value);
