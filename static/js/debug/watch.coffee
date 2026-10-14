@@ -87,6 +87,8 @@ class @Watch
     data = msg.data
     if @hover_expression? and @hover_callback? and data.hasOwnProperty(@hover_expression)
       @hover_callback(data[@hover_expression])
+    else if @hover_expression? and @hover_callback?
+      @hover_callback(null)
     #console.info data
     alive = {}
 

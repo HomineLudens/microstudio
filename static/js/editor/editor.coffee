@@ -392,11 +392,12 @@ class @Editor extends Manager
     @number_tool_button.style.display = "none"
 
   updateHoverValue:(event)->
-    return unless @app.project?.language?.startsWith("microscript")
-    return unless document.getElementById("runiframe")?
+    return @clearHoverValue() unless @app.project?.language?.startsWith("microscript")
+    return @clearHoverValue() unless document.getElementById("runiframe")?
+    return @clearHoverValue() unless @app.debug?.watch?
 
     position = event.getDocumentPosition?()
-    return unless position?
+    return @clearHoverValue() unless position?
     tokens = @editor.getSession().getTokens(position.row)
     column = 0
     identifier = false
@@ -422,20 +423,23 @@ class @Editor extends Manager
     @hover_value_tooltip.style.left = (mouse.clientX + 12) + "px"
     @hover_value_tooltip.style.top = (mouse.clientY + 18) + "px"
     if expression == @hover_value_expression
-      return
-
-    @clearHoverValue()
-    @hover_value_expression = expression
-    @hover_value_tooltip.style.left = (mouse.clientX + 12) + "px"
-    @hover_value_tooltip.style.top = (mouse.clientY + 18) + "px"
+      return if @hover_watch_active or @hover_value_timer?
+    else
+      @clearHoverValue()
+      @hover_value_expression = expression
+      @hover_value_tooltip.style.left = (mouse.clientX + 12) + "px"
+      @hover_value_tooltip.style.top = (mouse.clientY + 18) + "px"
     @hover_value_timer = setTimeout (=>
       return unless @hover_value_expression == expression
+      @hover_value_timer = null
+      @hover_watch_active = true
       @app.debug.watch.watchHover(expression,(value)=>
         return unless @hover_value_expression == expression
         if value?
           @hover_value_tooltip.textContent = expression + " = " + @formatHoverValue(value)
           @hover_value_tooltip.style.display = "block"
         else
+          @hover_watch_active = false
           @hover_value_tooltip.style.display = "none"
       )
     ),400
@@ -444,6 +448,7 @@ class @Editor extends Manager
     clearTimeout @hover_value_timer if @hover_value_timer?
     @hover_value_timer = null
     @hover_value_expression = null
+    @hover_watch_active = false
     if @hover_value_tooltip?
       @hover_value_tooltip.style.display = "none"
     @app.debug.watch.clearHoverWatch() if @app.debug?.watch?
