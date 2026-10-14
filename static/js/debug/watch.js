@@ -43,6 +43,12 @@ this.Watch = (function() {
   }
 
   Watch.prototype.reset = function() {
+    if (this.hover_callback != null) {
+      this.hover_callback(null);
+    }
+    this.hover_expression = null;
+    this.hover_callback = null;
+    this.hover_added = false;
     this.watch_lines = {};
     this.watch_list = ["global"];
     this.text_filter = "";
@@ -72,6 +78,42 @@ this.Watch = (function() {
     return this.start();
   };
 
+  Watch.prototype.watchHover = function(expression, callback) {
+    if (this.hover_expression === expression) {
+      return;
+    }
+    this.clearHoverWatch();
+    this.hover_expression = expression;
+    this.hover_callback = callback;
+    this.hover_added = this.watch_list.indexOf(expression) < 0;
+    if (this.hover_added) {
+      this.watch_list.push(expression);
+    }
+    this.watch_list_updated = true;
+    return this.start();
+  };
+
+  Watch.prototype.clearHoverWatch = function() {
+    var index;
+    if (this.hover_expression == null) {
+      return;
+    }
+    if (this.hover_added) {
+      index = this.watch_list.indexOf(this.hover_expression);
+      if (index >= 0) {
+        this.watch_list.splice(index, 1);
+      }
+    }
+    this.hover_expression = null;
+    this.hover_callback = null;
+    this.hover_added = false;
+    if (this.app.appui.debug_splitbar.closed2) {
+      return this.stop();
+    } else {
+      return this.start();
+    }
+  };
+
   Watch.prototype.removeWatch = function(w) {
     var index;
     console.info("removing watch: " + w);
@@ -91,6 +133,9 @@ this.Watch = (function() {
       return;
     }
     data = msg.data;
+    if ((this.hover_expression != null) && (this.hover_callback != null) && data.hasOwnProperty(this.hover_expression)) {
+      this.hover_callback(data[this.hover_expression]);
+    }
     alive = {};
     for (set_key in data) {
       set_value = data[set_key];

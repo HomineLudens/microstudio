@@ -1,9 +1,13 @@
-var indexOf = [].indexOf;
+var extend = function(child, parent) { for (var key in parent) { if (hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
+  hasProp = {}.hasOwnProperty,
+  indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
 
-this.Editor = class Editor extends Manager {
-  constructor(app) {
+this.Editor = (function(superClass) {
+  extend(Editor, superClass);
+
+  function Editor(app) {
     var f;
-    super(app);
+    Editor.__super__.constructor.call(this, app);
     this.language = this.app.languages.microscript;
     this.folder = "ms";
     this.item = "source";
@@ -23,115 +27,147 @@ this.Editor = class Editor extends Manager {
     this.editor.getSession().setOptions({
       tabSize: 2,
       useSoftTabs: true,
-      useWorker: false // disables lua autocorrection ; preserves syntax coloring
+      useWorker: false
     });
-    //enableBasicAutocompletion: true
-    //enableSnippets: true
-    //enableLiveAutocompletion: true
+    this.hover_value_tooltip = document.createElement("div");
+    this.hover_value_tooltip.classList.add("code-hover-value");
+    document.body.appendChild(this.hover_value_tooltip);
+    this.editor.on("mousemove", (function(_this) {
+      return function(event) {
+        return _this.updateHoverValue(event);
+      };
+    })(this));
+    this.editor.on("mouseout", (function(_this) {
+      return function() {
+        return _this.clearHoverValue();
+      };
+    })(this));
     this.update_delay = 50;
     this.update_time = 0;
-    setInterval((() => {
-      return this.check();
-    }), this.update_delay / 2);
+    setInterval(((function(_this) {
+      return function() {
+        return _this.check();
+      };
+    })(this)), this.update_delay / 2);
     this.save_delay = 3000;
     this.save_time = 0;
-    setInterval((() => {
-      return this.checkSave();
-    }), this.save_delay / 2);
+    setInterval(((function(_this) {
+      return function() {
+        return _this.checkSave();
+      };
+    })(this)), this.save_delay / 2);
     this.keydown_count = 0;
     this.lines_of_code = 0;
-    this.editor.getSession().on("change", () => {
-      return this.editorContentsChanged();
-    });
-    this.editor.on("blur", () => {
-      this.app.runwindow.rulercanvas.hide();
-      return document.getElementById("help-window").classList.add("disabled");
-    });
-    this.editor.on("focus", () => {
-      this.checkValueToolButtons();
-      this.cancelValueTool();
-      if (this.show_help) {
-        document.getElementById("help-window").classList.remove("disabled");
-        return this.liveHelp();
-      }
-    });
+    this.editor.getSession().on("change", (function(_this) {
+      return function() {
+        return _this.editorContentsChanged();
+      };
+    })(this));
+    this.editor.on("blur", (function(_this) {
+      return function() {
+        _this.app.runwindow.rulercanvas.hide();
+        return document.getElementById("help-window").classList.add("disabled");
+      };
+    })(this));
+    this.editor.on("focus", (function(_this) {
+      return function() {
+        _this.checkValueToolButtons();
+        _this.cancelValueTool();
+        if (_this.show_help) {
+          document.getElementById("help-window").classList.remove("disabled");
+          return _this.liveHelp();
+        }
+      };
+    })(this));
     this.RULER_FUNCTIONS = ["fillRect", "fillRound", "fillRoundRect", "drawRect", "drawRound", "drawRoundRect", "drawSprite", "drawMap", "drawText", "drawLine", "drawPolygon", "fillPolygon"];
     this.number_tool_button = document.getElementById("number-value-tool-button");
     this.color_tool_button = document.getElementById("color-value-tool-button");
-    this.number_tool_button.addEventListener("click", (event) => {
-      event.preventDefault();
-      if (this.value_tool) {
-        return this.cancelValueTool();
-      } else {
-        return this.showValueTool();
-      }
-    });
-    this.color_tool_button.addEventListener("click", (event) => {
-      event.preventDefault();
-      if (this.value_tool) {
-        return this.cancelValueTool();
-      } else {
-        return this.showValueTool();
-      }
-    });
-    this.editor.selection.on("changeCursor", () => {
-      this.liveHelp();
-      if (this.value_tool == null) {
-        this.drawHelper();
-      }
-      return this.checkValueToolButtons();
-    });
-    this.show_help = true;
-    document.querySelector("#help-window-content").addEventListener("mousedown", (event) => {
-      event.stopPropagation();
-      this.show_help = !this.show_help;
-      event.preventDefault();
-      if (!this.show_help) {
-        document.querySelector("#help-window").classList.add("disabled");
-        return document.querySelector("#help-window-content").classList.remove("displaycontent");
-      } else {
-        document.querySelector("#help-window").classList.remove("disabled");
-        this.liveHelp();
-        return this.editor.focus();
-      }
-    });
-    document.addEventListener("keydown", (event) => {
-      var err;
-      try {
-        if (event.keyCode === 13 && this.editor.getSelectionRange().start.column > 1) {
-          this.lines_of_code += 1;
-        } else if (event.keyCode !== 13) {
-          this.keydown_count += 1;
-        }
-      } catch (error) {
-        err = error;
-        console.error(err);
-      }
-      if (event.ctrlKey && !event.altKey && event.key.toLowerCase() === "f" && (document.getElementById("editor-view").offsetParent != null)) {
+    this.number_tool_button.addEventListener("click", (function(_this) {
+      return function(event) {
         event.preventDefault();
-        this.toggleCodeSearch(true, event.shiftKey);
-      }
-      if (event.keyCode !== 17 && event.ctrlKey) {
-        this.cancelValueTool();
-        this.ignore_ctrl_up = true;
-      }
-    });
-    document.addEventListener("keyup", (event) => {
-      if (document.getElementById("editor-view").offsetParent == null) {
-        return;
-      }
-      if (event.keyCode === 17 && !event.altKey) {
-        if (this.ignore_ctrl_up) {
-          this.ignore_ctrl_up = false;
+        if (_this.value_tool) {
+          return _this.cancelValueTool();
+        } else {
+          return _this.showValueTool();
+        }
+      };
+    })(this));
+    this.color_tool_button.addEventListener("click", (function(_this) {
+      return function(event) {
+        event.preventDefault();
+        if (_this.value_tool) {
+          return _this.cancelValueTool();
+        } else {
+          return _this.showValueTool();
+        }
+      };
+    })(this));
+    this.editor.selection.on("changeCursor", (function(_this) {
+      return function() {
+        _this.liveHelp();
+        if (_this.value_tool == null) {
+          _this.drawHelper();
+        }
+        return _this.checkValueToolButtons();
+      };
+    })(this));
+    this.show_help = true;
+    document.querySelector("#help-window-content").addEventListener("mousedown", (function(_this) {
+      return function(event) {
+        event.stopPropagation();
+        _this.show_help = !_this.show_help;
+        event.preventDefault();
+        if (!_this.show_help) {
+          document.querySelector("#help-window").classList.add("disabled");
+          return document.querySelector("#help-window-content").classList.remove("displaycontent");
+        } else {
+          document.querySelector("#help-window").classList.remove("disabled");
+          _this.liveHelp();
+          return _this.editor.focus();
+        }
+      };
+    })(this));
+    document.addEventListener("keydown", (function(_this) {
+      return function(event) {
+        var err;
+        try {
+          if (event.keyCode === 13 && _this.editor.getSelectionRange().start.column > 1) {
+            _this.lines_of_code += 1;
+          } else if (event.keyCode !== 13) {
+            _this.keydown_count += 1;
+          }
+        } catch (error) {
+          err = error;
+          console.error(err);
+        }
+        if (event.ctrlKey && !event.altKey && event.key.toLowerCase() === "f" && (document.getElementById("editor-view").offsetParent != null)) {
+          event.preventDefault();
+          _this.toggleCodeSearch(true, event.shiftKey);
+        }
+        if (event.keyCode !== 17 && event.ctrlKey) {
+          _this.cancelValueTool();
+          _this.ignore_ctrl_up = true;
+        }
+      };
+    })(this));
+    document.addEventListener("keyup", (function(_this) {
+      return function(event) {
+        if (document.getElementById("editor-view").offsetParent == null) {
           return;
         }
-        if (this.value_tool) {
-          this.cancelValueTool();
-        } else {
-          this.showValueTool();
+        if (event.keyCode === 17 && !event.altKey) {
+          if (_this.ignore_ctrl_up) {
+            _this.ignore_ctrl_up = false;
+            return;
+          }
+          if (_this.value_tool) {
+            _this.cancelValueTool();
+          } else {
+            _this.showValueTool();
+          }
         }
-      }
-    });
+      };
+    })(this));
     this.font_size = 14;
     this.MIN_FONT_SIZE = 8;
     this.MAX_FONT_SIZE = 30;
@@ -147,20 +183,24 @@ this.Editor = class Editor extends Manager {
         }
       } catch (error) {}
     }
-    document.querySelector("#code-font-minus").addEventListener("click", (event) => {
-      this.font_size = Math.max(this.MIN_FONT_SIZE, this.font_size - 1);
-      this.editor.setOptions({
-        fontSize: this.font_size
-      });
-      return localStorage.setItem("code_editor_font_size", this.font_size);
-    });
-    document.querySelector("#code-font-plus").addEventListener("click", (event) => {
-      this.font_size = Math.min(this.MAX_FONT_SIZE, this.font_size + 1);
-      this.editor.setOptions({
-        fontSize: this.font_size
-      });
-      return localStorage.setItem("code_editor_font_size", this.font_size);
-    });
+    document.querySelector("#code-font-minus").addEventListener("click", (function(_this) {
+      return function(event) {
+        _this.font_size = Math.max(_this.MIN_FONT_SIZE, _this.font_size - 1);
+        _this.editor.setOptions({
+          fontSize: _this.font_size
+        });
+        return localStorage.setItem("code_editor_font_size", _this.font_size);
+      };
+    })(this));
+    document.querySelector("#code-font-plus").addEventListener("click", (function(_this) {
+      return function(event) {
+        _this.font_size = Math.min(_this.MAX_FONT_SIZE, _this.font_size + 1);
+        _this.editor.setOptions({
+          fontSize: _this.font_size
+        });
+        return localStorage.setItem("code_editor_font_size", _this.font_size);
+      };
+    })(this));
     this.lib_manager_button = document.querySelector("#manage-libs-button");
     this.lib_manager = document.querySelector(".lib-manager-container");
     this.editor_view = document.querySelector("#editor-view");
@@ -169,29 +209,41 @@ this.Editor = class Editor extends Manager {
     this.search_input = document.querySelector("#code-search-input");
     this.search_results = document.querySelector("#code-search-results");
     this.search_all_files = true;
-    this.lib_manager_button.addEventListener("click", () => {
-      return this.toggleLibManager();
-    });
-    document.querySelector("#code-search-file").addEventListener("click", () => {
-      return this.toggleCodeSearch(true, false);
-    });
-    document.querySelector("#code-search").addEventListener("click", () => {
-      return this.toggleCodeSearch(true, true);
-    });
-    document.querySelector("#code-search-close").addEventListener("click", () => {
-      return this.toggleCodeSearch(false);
-    });
-    this.search_input.addEventListener("input", () => {
-      return this.searchCode();
-    });
-    this.search_input.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") {
-        return this.toggleCodeSearch(false);
-      }
-    });
+    this.lib_manager_button.addEventListener("click", (function(_this) {
+      return function() {
+        return _this.toggleLibManager();
+      };
+    })(this));
+    document.querySelector("#code-search-file").addEventListener("click", (function(_this) {
+      return function() {
+        return _this.toggleCodeSearch(true, false);
+      };
+    })(this));
+    document.querySelector("#code-search").addEventListener("click", (function(_this) {
+      return function() {
+        return _this.toggleCodeSearch(true, true);
+      };
+    })(this));
+    document.querySelector("#code-search-close").addEventListener("click", (function(_this) {
+      return function() {
+        return _this.toggleCodeSearch(false);
+      };
+    })(this));
+    this.search_input.addEventListener("input", (function(_this) {
+      return function() {
+        return _this.searchCode();
+      };
+    })(this));
+    this.search_input.addEventListener("keydown", (function(_this) {
+      return function(event) {
+        if (event.key === "Escape") {
+          return _this.toggleCodeSearch(false);
+        }
+      };
+    })(this));
   }
 
-  updateLanguage() {
+  Editor.prototype.updateLanguage = function() {
     if (this.app.project) {
       switch (this.app.project.language) {
         case "python":
@@ -212,9 +264,9 @@ this.Editor = class Editor extends Manager {
     }
     this.editor.getSession().setMode(this.language.ace_mode);
     return this.updateSourceLanguage();
-  }
+  };
 
-  checkEmbeddedJavaScript(src) {
+  Editor.prototype.checkEmbeddedJavaScript = function(src) {
     if (this.app.project.language === "microscript_v2") {
       if (/^\s*\/\/\s*javascript\s*\n/.test(src)) {
         if (this.language !== this.app.languages.javascript) {
@@ -228,9 +280,9 @@ this.Editor = class Editor extends Manager {
         }
       }
     }
-  }
+  };
 
-  editorContentsChanged() {
+  Editor.prototype.editorContentsChanged = function() {
     var source, src;
     if (this.ignore_changes) {
       return;
@@ -241,7 +293,7 @@ this.Editor = class Editor extends Manager {
     this.save_time = Date.now();
     this.app.project.addPendingChange(this);
     if (this.selected_source != null) {
-      this.app.project.lockFile(`ms/${this.selected_source}.ms`);
+      this.app.project.lockFile("ms/" + this.selected_source + ".ms");
       source = this.app.project.getSource(this.selected_source);
       if (source != null) {
         source.content = this.getCode();
@@ -250,9 +302,9 @@ this.Editor = class Editor extends Manager {
     if (this.value_tool == null) {
       return this.drawHelper();
     }
-  }
+  };
 
-  check() {
+  Editor.prototype.check = function() {
     var p, parser;
     if (this.update_time > 0 && (this.value_tool || Date.now() > this.update_time + this.update_delay)) {
       this.update_time = 0;
@@ -266,27 +318,30 @@ this.Editor = class Editor extends Manager {
         return this.app.runwindow.updateCode(this.selected_source + ".ms", this.getCode());
       }
     }
-  }
+  };
 
-  getCurrentLine() {
+  Editor.prototype.getCurrentLine = function() {
     var range, row;
     range = this.editor.getSelectionRange();
     row = range.start.row;
     return this.editor.session.getLine(row);
-  }
+  };
 
-  checkSave(immediate = false, callback) {
+  Editor.prototype.checkSave = function(immediate, callback) {
+    if (immediate == null) {
+      immediate = false;
+    }
     if (this.save_time > 0 && (immediate || Date.now() > this.save_time + this.save_delay)) {
       this.saveCode(callback);
       return this.save_time = 0;
     }
-  }
+  };
 
-  forceSave(callback) {
+  Editor.prototype.forceSave = function(callback) {
     return this.checkSave(true, callback);
-  }
+  };
 
-  saveCode(callback) {
+  Editor.prototype.saveCode = function(callback) {
     var keycount, lines, saved, source;
     source = this.app.project.getSource(this.selected_source);
     saved = false;
@@ -297,63 +352,69 @@ this.Editor = class Editor extends Manager {
     this.app.client.sendRequest({
       name: "write_project_file",
       project: this.app.project.id,
-      file: `ms/${this.selected_source}.ms`,
+      file: "ms/" + this.selected_source + ".ms",
       characters: keycount,
       lines: lines,
       content: this.getCode()
-    }, (msg) => {
-      saved = true;
-      if (this.save_time === 0) {
-        this.app.project.removePendingChange(this);
-      }
-      if (source) {
-        source.size = msg.size;
-      }
-      if (callback != null) {
-        return callback();
-      }
-    });
-    return setTimeout((() => {
-      if (!saved) {
-        this.save_time = Date.now();
-        return console.info("retrying code save...");
-      }
-    }), 10000);
-  }
+    }, (function(_this) {
+      return function(msg) {
+        saved = true;
+        if (_this.save_time === 0) {
+          _this.app.project.removePendingChange(_this);
+        }
+        if (source) {
+          source.size = msg.size;
+        }
+        if (callback != null) {
+          return callback();
+        }
+      };
+    })(this));
+    return setTimeout(((function(_this) {
+      return function() {
+        if (!saved) {
+          _this.save_time = Date.now();
+          return console.info("retrying code save...");
+        }
+      };
+    })(this)), 10000);
+  };
 
-  getCode() {
+  Editor.prototype.getCode = function() {
     return this.editor.getValue();
-  }
+  };
 
-  setCode(code) {
+  Editor.prototype.setCode = function(code) {
     this.ignore_changes = true;
     this.editor.setValue(code, -1);
     this.editor.getSession().setUndoManager(new ace.UndoManager());
     this.ignore_changes = false;
     this.updateCurrentFileLock();
     return this.checkEmbeddedJavaScript(code);
-  }
+  };
 
-  addDocButton(pointer, section) {
+  Editor.prototype.addDocButton = function(pointer, section) {
     var button, content;
     content = document.querySelector("#help-window .content");
     button = document.createElement("div");
     button.classList.add("see-doc-button");
     button.innerHTML = "<i class='fa fa-book-open'></i> " + this.app.translator.get("View doc");
-    button.addEventListener("mousedown", (event) => {
-      var element;
-      event.stopPropagation();
-      this.app.documentation.setSection(section || "API");
-      this.app.appui.setMainSection("help", true);
-      element = document.getElementById(pointer);
-      if (element != null) {
-        return element.scrollIntoView();
-      }
-    });
+    button.addEventListener("mousedown", (function(_this) {
+      return function(event) {
+        var element;
+        event.stopPropagation();
+        _this.app.documentation.setSection(section || "API");
+        _this.app.appui.setMainSection("help", true);
+        element = document.getElementById(pointer);
+        if (element != null) {
+          return element.scrollIntoView();
+        }
+      };
+    })(this));
     return content.insertBefore(button, content.firstChild);
-  }
+  };
 
-  liveHelp() {
+  Editor.prototype.liveHelp = function() {
     var c, column, content, help, j, len, line, md, res, suggest;
     if (!this.show_help) {
       return;
@@ -401,9 +462,9 @@ this.Editor = class Editor extends Manager {
       c.classList.add("displaycontent");
       return c.classList.remove("vertical");
     }
-  }
+  };
 
-  tokenizeLine(line) {
+  Editor.prototype.tokenizeLine = function(line) {
     var err, index, list, token, tokenizer;
     tokenizer = new Tokenizer(line.replace(":", "."));
     index = 0;
@@ -425,9 +486,9 @@ this.Editor = class Editor extends Manager {
       err = error;
     }
     return list;
-  }
+  };
 
-  checkValueToolButtons() {
+  Editor.prototype.checkValueToolButtons = function() {
     var column, index, j, len, line, list, range, ref, row, token;
     range = this.editor.getSelectionRange();
     row = range.start.row;
@@ -463,14 +524,158 @@ this.Editor = class Editor extends Manager {
     }
     this.color_tool_button.style.display = "none";
     return this.number_tool_button.style.display = "none";
-  }
+  };
 
-  hideValueToolButtons() {
+  Editor.prototype.hideValueToolButtons = function() {
     this.color_tool_button.style.display = "none";
     return this.number_tool_button.style.display = "none";
-  }
+  };
 
-  showValueTool() {
+  Editor.prototype.updateHoverValue = function(event) {
+    var column, expression, identifier, j, len, line, match, mouse, position, ref, ref1, regex, token, token_end, tokens;
+    if (!((ref = this.app.project) != null ? (ref1 = ref.language) != null ? ref1.startsWith("microscript") : void 0 : void 0)) {
+      return;
+    }
+    if (document.getElementById("runiframe") == null) {
+      return;
+    }
+    position = typeof event.getDocumentPosition === "function" ? event.getDocumentPosition() : void 0;
+    if (position == null) {
+      return;
+    }
+    tokens = this.editor.getSession().getTokens(position.row);
+    column = 0;
+    identifier = false;
+    for (j = 0, len = tokens.length; j < len; j++) {
+      token = tokens[j];
+      token_end = column + token.value.length;
+      if (position.column >= column && position.column < token_end) {
+        identifier = token.type === "identifier";
+        break;
+      }
+      column = token_end;
+    }
+    if (!identifier) {
+      return this.clearHoverValue();
+    }
+    line = this.editor.session.getLine(position.row);
+    expression = null;
+    match = null;
+    regex = /[a-zA-Z_$][a-zA-Z0-9_$]*(?:\s*\.\s*[a-zA-Z_$][a-zA-Z0-9_$]*)*/g;
+    while (match = regex.exec(line)) {
+      if (position.column >= match.index && position.column < match.index + match[0].length) {
+        expression = match[0].replace(/\s/g, "");
+        break;
+      }
+    }
+    if (expression == null) {
+      return this.clearHoverValue();
+    }
+    mouse = event.domEvent || event;
+    this.hover_value_tooltip.style.left = (mouse.clientX + 12) + "px";
+    this.hover_value_tooltip.style.top = (mouse.clientY + 18) + "px";
+    if (expression === this.hover_value_expression) {
+      return;
+    }
+    this.clearHoverValue();
+    this.hover_value_expression = expression;
+    this.hover_value_tooltip.style.left = (mouse.clientX + 12) + "px";
+    this.hover_value_tooltip.style.top = (mouse.clientY + 18) + "px";
+    return this.hover_value_timer = setTimeout(((function(_this) {
+      return function() {
+        if (_this.hover_value_expression !== expression) {
+          return;
+        }
+        return _this.app.debug.watch.watchHover(expression, function(value) {
+          if (_this.hover_value_expression !== expression) {
+            return;
+          }
+          if (value != null) {
+            _this.hover_value_tooltip.textContent = expression + " = " + _this.formatHoverValue(value);
+            return _this.hover_value_tooltip.style.display = "block";
+          } else {
+            return _this.hover_value_tooltip.style.display = "none";
+          }
+        });
+      };
+    })(this)), 400);
+  };
+
+  Editor.prototype.clearHoverValue = function() {
+    var ref;
+    if (this.hover_value_timer != null) {
+      clearTimeout(this.hover_value_timer);
+    }
+    this.hover_value_timer = null;
+    this.hover_value_expression = null;
+    if (this.hover_value_tooltip != null) {
+      this.hover_value_tooltip.style.display = "none";
+    }
+    if (((ref = this.app.debug) != null ? ref.watch : void 0) != null) {
+      return this.app.debug.watch.clearHoverWatch();
+    }
+  };
+
+  Editor.prototype.formatHoverValue = function(value, depth) {
+    var item, key, keys, values;
+    if (depth == null) {
+      depth = 0;
+    }
+    if (depth > 2) {
+      return "…";
+    }
+    if ((value != null ? value.type : void 0) != null) {
+      switch (value.type) {
+        case "string":
+          return JSON.stringify(value.value);
+        case "number":
+          return "" + value.value;
+        case "function":
+          return "function()";
+        case "list":
+          return "[list:" + value.length + "]";
+        case "object":
+          return value.value || "object";
+        default:
+          return "" + value.value;
+      }
+    }
+    if (Array.isArray(value)) {
+      values = (function() {
+        var j, len, ref, results;
+        ref = value.slice(0, 5);
+        results = [];
+        for (j = 0, len = ref.length; j < len; j++) {
+          item = ref[j];
+          results.push(this.formatHoverValue(item, depth + 1));
+        }
+        return results;
+      }).call(this);
+      if (value.length > 5) {
+        values.push("…");
+      }
+      return "[" + values.join(", ") + "]";
+    }
+    if (typeof value === "object" && (value != null)) {
+      keys = Object.keys(value).slice(0, 5);
+      values = (function() {
+        var j, len, results;
+        results = [];
+        for (j = 0, len = keys.length; j < len; j++) {
+          key = keys[j];
+          results.push(key + ": " + (this.formatHoverValue(value[key], depth + 1)));
+        }
+        return results;
+      }).call(this);
+      if (Object.keys(value).length > 5) {
+        values.push("…");
+      }
+      return "{" + values.join(", ") + "}";
+    }
+    return "" + value;
+  };
+
+  Editor.prototype.showValueTool = function() {
     var column, end, endcolumn, index, j, len, line, list, pos, range, ref, ref1, row, start, start_token, token, value;
     if (this.value_tool != null) {
       return;
@@ -514,32 +719,10 @@ this.Editor = class Editor extends Manager {
           start = line.substring(0, start_token.start);
           end = line.substring(token.end, line.length);
           pos = this.editor.renderer.$cursorLayer.getPixelPosition(range.start, true);
-          //@editor.selection.setRange(new ace.Range(row,start_token.start,row,token.end),true)
           this.editor.blur();
-          this.value_tool = new ValueTool(this, pos.left, pos.top, value, (value) => {
-            this.editor.session.replace({
-              start: {
-                row: row,
-                column: 0
-              },
-              end: {
-                row: row,
-                column: Number.MAX_VALUE
-              }
-            }, start + value + end);
-            this.editor.selection.setRange(new ace.Range(row, start_token.start, row, start_token.start + ("" + value).length), true);
-            return this.drawHelper(row, column);
-          });
-          return true;
-        case Token.TYPE_STRING:
-          if (RegexLib.csscolor.test(token.token.value)) {
-            start = line.substring(0, token.start);
-            end = line.substring(token.end, line.length);
-            pos = this.editor.renderer.$cursorLayer.getPixelPosition(range.start, true);
-            this.editor.blur();
-            this.value_tool = new ColorValueTool(this, pos.left, pos.top, token.token.value, (value) => {
-              value = `"${value}"`;
-              return this.editor.session.replace({
+          this.value_tool = new ValueTool(this, pos.left, pos.top, value, (function(_this) {
+            return function(value) {
+              _this.editor.session.replace({
                 start: {
                   row: row,
                   column: 0
@@ -549,74 +732,103 @@ this.Editor = class Editor extends Manager {
                   column: Number.MAX_VALUE
                 }
               }, start + value + end);
-            });
+              _this.editor.selection.setRange(new ace.Range(row, start_token.start, row, start_token.start + ("" + value).length), true);
+              return _this.drawHelper(row, column);
+            };
+          })(this));
+          return true;
+        case Token.TYPE_STRING:
+          if (RegexLib.csscolor.test(token.token.value)) {
+            start = line.substring(0, token.start);
+            end = line.substring(token.end, line.length);
+            pos = this.editor.renderer.$cursorLayer.getPixelPosition(range.start, true);
+            this.editor.blur();
+            this.value_tool = new ColorValueTool(this, pos.left, pos.top, token.token.value, (function(_this) {
+              return function(value) {
+                value = "\"" + value + "\"";
+                return _this.editor.session.replace({
+                  start: {
+                    row: row,
+                    column: 0
+                  },
+                  end: {
+                    row: row,
+                    column: Number.MAX_VALUE
+                  }
+                }, start + value + end);
+              };
+            })(this));
             return true;
           }
       }
     }
     return false;
-  }
+  };
 
-  cancelValueTool() {
+  Editor.prototype.cancelValueTool = function() {
     if (this.value_tool) {
       this.value_tool.dispose();
       this.value_tool = null;
       this.app.runwindow.rulercanvas.hide();
       return this.editor.focus();
     }
-  }
+  };
 
-  evalArg(arg, callback) {
+  Editor.prototype.evalArg = function(arg, callback) {
     if (document.getElementById("runiframe") != null) {
       return this.app.runwindow.runCommand(arg, callback);
     } else {
       return callback(isFinite(arg) ? arg * 1 : 0);
     }
-  }
+  };
 
-  drawHelper(row, column) {
+  Editor.prototype.drawHelper = function(row, column) {
     var args, err, funk, i, j, ref, res;
     try {
       res = this.analyzeLine(row, column);
       if (res != null) {
         if (this.app.project.language.startsWith("microscript")) {
-          if (res.function.indexOf("Polygon") > 0 || res.function === "drawLine") {
+          if (res["function"].indexOf("Polygon") > 0 || res["function"] === "drawLine") {
             args = [];
-            funk = (i) => {
-              return this.evalArg(res.args[i], (v) => {
-                args[i] = v;
-                if (i < res.args.length - 1) {
-                  return funk(i + 1);
-                } else {
-                  return this.app.runwindow.rulercanvas.showPolygon(args, res.arg);
-                }
-              });
-            };
+            funk = (function(_this) {
+              return function(i) {
+                return _this.evalArg(res.args[i], function(v) {
+                  args[i] = v;
+                  if (i < res.args.length - 1) {
+                    return funk(i + 1);
+                  } else {
+                    return _this.app.runwindow.rulercanvas.showPolygon(args, res.arg);
+                  }
+                });
+              };
+            })(this);
             return funk(0);
           } else {
-            return this.evalArg(res.args[0], (v1) => {
-              return this.evalArg(res.args[1], (v2) => {
-                return this.evalArg(res.args[2], (v3) => {
-                  return this.evalArg(res.args[3], (v4) => {
-                    switch (res.arg) {
-                      case 0:
-                        return this.app.runwindow.rulercanvas.showX(v1, v2, v3, v4);
-                      case 1:
-                        return this.app.runwindow.rulercanvas.showY(v1, v2, v3, v4);
-                      case 2:
-                        return this.app.runwindow.rulercanvas.showW(v1, v2, v3, v4);
-                      case 3:
-                        return this.app.runwindow.rulercanvas.showH(v1, v2, v3, v4);
-                      default:
-                        return this.app.runwindow.rulercanvas.showBox(v1, v2, v3, v4);
-                    }
+            return this.evalArg(res.args[0], (function(_this) {
+              return function(v1) {
+                return _this.evalArg(res.args[1], function(v2) {
+                  return _this.evalArg(res.args[2], function(v3) {
+                    return _this.evalArg(res.args[3], function(v4) {
+                      switch (res.arg) {
+                        case 0:
+                          return _this.app.runwindow.rulercanvas.showX(v1, v2, v3, v4);
+                        case 1:
+                          return _this.app.runwindow.rulercanvas.showY(v1, v2, v3, v4);
+                        case 2:
+                          return _this.app.runwindow.rulercanvas.showW(v1, v2, v3, v4);
+                        case 3:
+                          return _this.app.runwindow.rulercanvas.showH(v1, v2, v3, v4);
+                        default:
+                          return _this.app.runwindow.rulercanvas.showBox(v1, v2, v3, v4);
+                      }
+                    });
                   });
                 });
-              });
-            });
+              };
+            })(this));
           }
         } else {
-          if (res.function.indexOf("Polygon") > 0 || res.function === "drawLine") {
+          if (res["function"].indexOf("Polygon") > 0 || res["function"] === "drawLine") {
             args = res.args;
             return this.app.runwindow.rulercanvas.showPolygon(args, res.arg);
           } else {
@@ -645,9 +857,9 @@ this.Editor = class Editor extends Manager {
       err = error;
       return console.error(err);
     }
-  }
+  };
 
-  analyzeLine(row, column) {
+  Editor.prototype.analyzeLine = function(row, column) {
     var a, arg, arg_value, args, f, i, j, len, line, p, parser, range, ref, ref1, ref2;
     range = this.editor.getSelectionRange();
     if ((row == null) || (column == null)) {
@@ -693,7 +905,7 @@ this.Editor = class Editor extends Manager {
           }
         }
         return {
-          function: f.expression.chain[0].value,
+          "function": f.expression.chain[0].value,
           arg: arg,
           value: arg_value,
           args: args
@@ -701,9 +913,9 @@ this.Editor = class Editor extends Manager {
       }
     }
     return null;
-  }
+  };
 
-  updateSourceLanguage() {
+  Editor.prototype.updateSourceLanguage = function() {
     var element, lang;
     lang = this.app.project.language.split("_")[0];
     element = document.querySelector("#source-asset-bar .language");
@@ -711,15 +923,14 @@ this.Editor = class Editor extends Manager {
     element.className = "";
     element.classList.add(lang);
     return element.classList.add("language");
-  }
+  };
 
-  // document.getElementById("code-toolbar").innerHTML += "<span class='language #{lang}'>#{lang}</span>"
-  setSelectedItem(name) {
+  Editor.prototype.setSelectedItem = function(name) {
     this.setSelectedSource(name);
-    return super.setSelectedItem(name);
-  }
+    return Editor.__super__.setSelectedItem.call(this, name);
+  };
 
-  setSelectedSource(name) {
+  Editor.prototype.setSelectedSource = function(name) {
     var different, source;
     this.toggleLibManager(false);
     this.checkSave(true);
@@ -752,9 +963,9 @@ this.Editor = class Editor extends Manager {
     } else {
       return this.setCode("");
     }
-  }
+  };
 
-  renderSourceTabs() {
+  Editor.prototype.renderSourceTabs = function() {
     var j, len, name, ref, results;
     if (this.tabs_container == null) {
       return;
@@ -764,35 +975,37 @@ this.Editor = class Editor extends Manager {
     results = [];
     for (j = 0, len = ref.length; j < len; j++) {
       name = ref[j];
-      results.push(((name) => {
-        var close, label, tab;
-        tab = document.createElement("div");
-        tab.classList.add("code-file-tab");
-        if (name === this.selected_source) {
-          tab.classList.add("selected");
-        }
-        label = document.createElement("span");
-        label.textContent = name.replace(/-/g, "/");
-        tab.appendChild(label);
-        close = document.createElement("i");
-        close.className = "fa fa-times";
-        close.title = this.app.translator.get("Close file");
-        tab.appendChild(close);
-        tab.addEventListener("click", (event) => {
-          if (event.target === close) {
-            event.stopPropagation();
-            return this.closeSourceTab(name);
-          } else {
-            return this.setSelectedItem(name);
+      results.push((function(_this) {
+        return function(name) {
+          var close, label, tab;
+          tab = document.createElement("div");
+          tab.classList.add("code-file-tab");
+          if (name === _this.selected_source) {
+            tab.classList.add("selected");
           }
-        });
-        return this.tabs_container.appendChild(tab);
-      })(name));
+          label = document.createElement("span");
+          label.textContent = name.replace(/-/g, "/");
+          tab.appendChild(label);
+          close = document.createElement("i");
+          close.className = "fa fa-times";
+          close.title = _this.app.translator.get("Close file");
+          tab.appendChild(close);
+          tab.addEventListener("click", function(event) {
+            if (event.target === close) {
+              event.stopPropagation();
+              return _this.closeSourceTab(name);
+            } else {
+              return _this.setSelectedItem(name);
+            }
+          });
+          return _this.tabs_container.appendChild(tab);
+        };
+      })(this)(name));
     }
     return results;
-  }
+  };
 
-  closeSourceTab(name) {
+  Editor.prototype.closeSourceTab = function(name) {
     var index, next;
     index = this.open_sources.indexOf(name);
     if (index < 0) {
@@ -805,9 +1018,15 @@ this.Editor = class Editor extends Manager {
     } else {
       return this.renderSourceTabs();
     }
-  }
+  };
 
-  toggleCodeSearch(show = this.search_panel.classList.contains("hidden"), all_files = this.search_all_files) {
+  Editor.prototype.toggleCodeSearch = function(show, all_files) {
+    if (show == null) {
+      show = this.search_panel.classList.contains("hidden");
+    }
+    if (all_files == null) {
+      all_files = this.search_all_files;
+    }
     if (show) {
       this.search_all_files = all_files;
     }
@@ -818,9 +1037,9 @@ this.Editor = class Editor extends Manager {
       this.search_input.select();
       return this.searchCode();
     }
-  }
+  };
 
-  searchCode() {
+  Editor.prototype.searchCode = function() {
     var all_files, query, search, source_name;
     query = this.search_input.value.trim().toLowerCase();
     all_files = this.search_all_files;
@@ -829,42 +1048,47 @@ this.Editor = class Editor extends Manager {
     if (query.length === 0) {
       return;
     }
-    search = () => {
-      var content, count, empty, index, j, k, len, len1, line, lines, preview, result, source, sources, title;
-      if (this.search_input.value.trim().toLowerCase() !== query) {
-        return;
-      }
-      if (this.search_all_files !== all_files || (!all_files && this.selected_source !== source_name)) {
-        return;
-      }
-      count = 0;
-      if (!all_files && (source_name != null)) {
-        source = this.app.project.getSource(source_name);
-      }
-      sources = all_files ? this.app.project.source_list : source != null ? [source] : [];
-      for (j = 0, len = sources.length; j < len; j++) {
-        source = sources[j];
-        content = !all_files && source.name === this.selected_source ? this.editor.getValue() : source.content;
-        lines = content.split("\n");
-        for (index = k = 0, len1 = lines.length; k < len1; index = ++k) {
-          line = lines[index];
-          if (line.toLowerCase().indexOf(query) >= 0) {
-            result = document.createElement("button");
-            result.className = "code-search-result";
-            result.type = "button";
-            title = document.createElement("strong");
-            title.textContent = `${source.name.replace(/-/g, "/")}:${index + 1}`;
-            preview = document.createElement("span");
-            preview.textContent = line.trim();
-            result.appendChild(title);
-            result.appendChild(preview);
-            ((name, row, column) => {
-              return result.addEventListener("click", () => {
-                return this.openSearchResult(name, row, column);
-              });
-            })(source.name, index, line.toLowerCase().indexOf(query));
-            this.search_results.appendChild(result);
-            count += 1;
+    search = (function(_this) {
+      return function() {
+        var content, count, empty, index, j, k, len, len1, line, lines, preview, result, source, sources, title;
+        if (_this.search_input.value.trim().toLowerCase() !== query) {
+          return;
+        }
+        if (_this.search_all_files !== all_files || (!all_files && _this.selected_source !== source_name)) {
+          return;
+        }
+        count = 0;
+        if (!all_files && (source_name != null)) {
+          source = _this.app.project.getSource(source_name);
+        }
+        sources = all_files ? _this.app.project.source_list : source != null ? [source] : [];
+        for (j = 0, len = sources.length; j < len; j++) {
+          source = sources[j];
+          content = !all_files && source.name === _this.selected_source ? _this.editor.getValue() : source.content;
+          lines = content.split("\n");
+          for (index = k = 0, len1 = lines.length; k < len1; index = ++k) {
+            line = lines[index];
+            if (line.toLowerCase().indexOf(query) >= 0) {
+              result = document.createElement("button");
+              result.className = "code-search-result";
+              result.type = "button";
+              title = document.createElement("strong");
+              title.textContent = (source.name.replace(/-/g, "/")) + ":" + (index + 1);
+              preview = document.createElement("span");
+              preview.textContent = line.trim();
+              result.appendChild(title);
+              result.appendChild(preview);
+              (function(name, row, column) {
+                return result.addEventListener("click", function() {
+                  return _this.openSearchResult(name, row, column);
+                });
+              })(source.name, index, line.toLowerCase().indexOf(query));
+              _this.search_results.appendChild(result);
+              count += 1;
+              if (count >= 200) {
+                break;
+              }
+            }
             if (count >= 200) {
               break;
             }
@@ -873,34 +1097,31 @@ this.Editor = class Editor extends Manager {
             break;
           }
         }
-        if (count >= 200) {
-          break;
+        if (count === 0) {
+          empty = document.createElement("div");
+          empty.className = "code-search-empty";
+          empty.textContent = _this.app.translator.get("No matches");
+          return _this.search_results.appendChild(empty);
         }
-      }
-      if (count === 0) {
-        empty = document.createElement("div");
-        empty.className = "code-search-empty";
-        empty.textContent = this.app.translator.get("No matches");
-        return this.search_results.appendChild(empty);
-      }
-    };
+      };
+    })(this);
     if (all_files) {
       return this.ensureSourcesLoaded(search);
     } else {
       return search();
     }
-  }
+  };
 
-  openSearchResult(name, row, column) {
+  Editor.prototype.openSearchResult = function(name, row, column) {
     var range;
     this.setSelectedItem(name);
     range = new ace.Range(row, column, row, column);
     this.editor.selection.setRange(range);
     this.editor.revealRange(range);
     return this.editor.focus();
-  }
+  };
 
-  ensureSourcesLoaded(callback) {
+  Editor.prototype.ensureSourcesLoaded = function(callback) {
     var j, len, pending, remaining, results, source;
     if (this.loading_sources) {
       this.source_load_callbacks.push(callback);
@@ -927,27 +1148,29 @@ this.Editor = class Editor extends Manager {
     results = [];
     for (j = 0, len = pending.length; j < len; j++) {
       source = pending[j];
-      results.push(source.reload(() => {
-        var callbacks, cb, k, len1, results1;
-        remaining -= 1;
-        if (remaining === 0) {
-          this.loading_sources = false;
-          callbacks = this.source_load_callbacks;
-          this.source_load_callbacks = [];
-          results1 = [];
-          for (k = 0, len1 = callbacks.length; k < len1; k++) {
-            cb = callbacks[k];
-            results1.push(cb());
+      results.push(source.reload((function(_this) {
+        return function() {
+          var callbacks, cb, k, len1, results1;
+          remaining -= 1;
+          if (remaining === 0) {
+            _this.loading_sources = false;
+            callbacks = _this.source_load_callbacks;
+            _this.source_load_callbacks = [];
+            results1 = [];
+            for (k = 0, len1 = callbacks.length; k < len1; k++) {
+              cb = callbacks[k];
+              results1.push(cb());
+            }
+            return results1;
           }
-          return results1;
-        }
-      }));
+        };
+      })(this)));
     }
     return results;
-  }
+  };
 
-  projectOpened() {
-    super.projectOpened();
+  Editor.prototype.projectOpened = function() {
+    Editor.__super__.projectOpened.call(this);
     this.sessions = {};
     this.open_sources = [];
     this.loading_sources = false;
@@ -959,10 +1182,10 @@ this.Editor = class Editor extends Manager {
     this.updateRunLink();
     this.updateLanguage();
     return this.update();
-  }
+  };
 
-  projectUpdate(change) {
-    super.projectUpdate(change);
+  Editor.prototype.projectUpdate = function(change) {
+    Editor.__super__.projectUpdate.call(this, change);
     if (change instanceof ProjectSource) {
       if (this.selected_source != null) {
         if (change === this.app.project.getSource(this.selected_source)) {
@@ -977,9 +1200,9 @@ this.Editor = class Editor extends Manager {
     } else if (change === "annotations") {
       return this.updateAnnotations();
     }
-  }
+  };
 
-  updateAnnotations() {
+  Editor.prototype.updateAnnotations = function() {
     var source;
     if (this.selected_source != null) {
       source = this.app.project.getSource(this.selected_source);
@@ -987,16 +1210,16 @@ this.Editor = class Editor extends Manager {
         return this.editor.session.setAnnotations(source.annotations || []);
       }
     }
-  }
+  };
 
-  updateCurrentFileLock() {
+  Editor.prototype.updateCurrentFileLock = function() {
     var lock, source, user;
     lock = document.getElementById("editor-locked");
     if (this.selected_source != null) {
-      if (this.app.project.isLocked(`ms/${this.selected_source}.ms`)) {
+      if (this.app.project.isLocked("ms/" + this.selected_source + ".ms")) {
         this.editor.setReadOnly(true);
-        user = this.app.project.isLocked(`ms/${this.selected_source}.ms`).user;
-        return this.showLock(`<i class='fa fa-user'></i> Locked by ${user}`, this.app.appui.createFriendColor(user));
+        user = this.app.project.isLocked("ms/" + this.selected_source + ".ms").user;
+        return this.showLock("<i class='fa fa-user'></i> Locked by " + user, this.app.appui.createFriendColor(user));
       } else {
         source = this.app.project.getSource(this.selected_source);
         if ((source != null) && !source.fetched) {
@@ -1011,31 +1234,33 @@ this.Editor = class Editor extends Manager {
       this.hideLock();
       return this.editor.setReadOnly(true);
     }
-  }
+  };
 
-  showLock(html, color) {
+  Editor.prototype.showLock = function(html, color) {
     var lock;
     lock = document.getElementById("editor-locked");
     this.lock_shown = true;
-    lock.style = `display: block; background: ${color}; opacity: 1`;
+    lock.style = "display: block; background: " + color + "; opacity: 1";
     lock.innerHTML = html;
     return document.getElementById("editor-view").style.opacity = .5;
-  }
+  };
 
-  hideLock() {
+  Editor.prototype.hideLock = function() {
     var lock;
     lock = document.getElementById("editor-locked");
     this.lock_shown = false;
     lock.style.opacity = 0;
     document.getElementById("editor-view").style.opacity = 1;
-    return setTimeout((() => {
-      if (!this.lock_shown) {
-        return lock.style.display = "none";
-      }
-    }), 1000);
-  }
+    return setTimeout(((function(_this) {
+      return function() {
+        if (!_this.lock_shown) {
+          return lock.style.display = "none";
+        }
+      };
+    })(this)), 1000);
+  };
 
-  selectedItemRenamed() {
+  Editor.prototype.selectedItemRenamed = function() {
     var index, old;
     old = this.selected_source;
     index = this.open_sources.indexOf(old);
@@ -1044,11 +1269,11 @@ this.Editor = class Editor extends Manager {
     }
     this.selected_source = this.selected_item;
     return this.renderSourceTabs();
-  }
+  };
 
-  rebuildList() {
+  Editor.prototype.rebuildList = function() {
     var name;
-    super.rebuildList();
+    Editor.__super__.rebuildList.call(this);
     this.open_sources = (function() {
       var j, len, ref, results;
       ref = this.open_sources;
@@ -1069,32 +1294,40 @@ this.Editor = class Editor extends Manager {
       }
     }
     return this.renderSourceTabs();
-  }
+  };
 
-  fileDropped(file, folder) {
+  Editor.prototype.fileDropped = function(file, folder) {
     var reader;
-    console.info(`processing ${file.name}`);
+    console.info("processing " + file.name);
     console.info("folder: " + folder);
     reader = new FileReader();
-    reader.addEventListener("load", () => {
-      var name;
-      console.info("file read, size = " + reader.result.length);
-      if (reader.result.length > 1000000) {
-        return;
-      }
-      name = file.name.split(".")[0];
-      name = RegexLib.fixFilename(name);
-      console.info(reader.result);
-      return this.createAsset(folder, name, reader.result);
-    });
+    reader.addEventListener("load", (function(_this) {
+      return function() {
+        var name;
+        console.info("file read, size = " + reader.result.length);
+        if (reader.result.length > 1000000) {
+          return;
+        }
+        name = file.name.split(".")[0];
+        name = RegexLib.fixFilename(name);
+        console.info(reader.result);
+        return _this.createAsset(folder, name, reader.result);
+      };
+    })(this));
     return reader.readAsText(file);
-  }
+  };
 
-  createAsset(folder, name = "source", content = "") {
+  Editor.prototype.createAsset = function(folder, name, content) {
     var source;
+    if (name == null) {
+      name = "source";
+    }
+    if (content == null) {
+      content = "";
+    }
     this.checkSave(true);
     if (folder != null) {
-      name = folder.getFullDashPath() + `-${name}`;
+      name = folder.getFullDashPath() + ("-" + name);
       folder.setOpen(true);
     }
     source = this.app.project.createSource(name);
@@ -1103,24 +1336,26 @@ this.Editor = class Editor extends Manager {
     return this.app.client.sendRequest({
       name: "write_project_file",
       project: this.app.project.id,
-      file: `ms/${name}.ms`,
+      file: "ms/" + name + ".ms",
       properties: {},
       content: content
-    }, (msg) => {
-      console.info(msg);
-      this.app.project.updateSourceList();
-      return this.setSelectedItem(name);
-    });
-  }
+    }, (function(_this) {
+      return function(msg) {
+        console.info(msg);
+        _this.app.project.updateSourceList();
+        return _this.setSelectedItem(name);
+      };
+    })(this));
+  };
 
-  updateRunLink() {
+  Editor.prototype.updateRunLink = function() {
     var element, iframe, qrcode, url;
     element = document.getElementById("run-link");
     if (this.app.project != null) {
       url = location.origin.replace(".dev", ".io") + "/";
       url += this.app.project.owner.nick + "/";
       url += this.app.project.slug + "/";
-      if (!this.app.project.public) {
+      if (!this.app.project["public"]) {
         url += this.app.project.code + "/";
       }
       element.innerText = url;
@@ -1132,19 +1367,24 @@ this.Editor = class Editor extends Manager {
       }
       return qrcode = QRCode.toDataURL(url, {
         margin: 0
-      }, (err, url) => {
-        var img;
-        if ((err == null) && (url != null)) {
-          img = new Image;
-          img.src = url;
-          document.getElementById("qrcode-button").innerHTML = "";
-          return document.getElementById("qrcode-button").appendChild(img);
-        }
-      });
+      }, (function(_this) {
+        return function(err, url) {
+          var img;
+          if ((err == null) && (url != null)) {
+            img = new Image;
+            img.src = url;
+            document.getElementById("qrcode-button").innerHTML = "";
+            return document.getElementById("qrcode-button").appendChild(img);
+          }
+        };
+      })(this));
     }
-  }
+  };
 
-  toggleLibManager(view = this.editor_view.style.display !== "none") {
+  Editor.prototype.toggleLibManager = function(view) {
+    if (view == null) {
+      view = this.editor_view.style.display !== "none";
+    }
     if (view) {
       this.lib_manager.style.display = "block";
       this.editor_view.style.display = "none";
@@ -1155,6 +1395,8 @@ this.Editor = class Editor extends Manager {
       this.editor_view.style.display = "block";
       return this.lib_manager_button.classList.remove("selected");
     }
-  }
+  };
 
-};
+  return Editor;
+
+})(Manager);
