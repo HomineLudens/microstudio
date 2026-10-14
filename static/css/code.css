@@ -47,6 +47,10 @@
   overflow-y: hidden ;
   white-space: nowrap ;
   background: hsl(200,20%,18%) ;
+  scrollbar-width: none ;
+}
+.code-file-tabs::-webkit-scrollbar {
+  display: none ;
 }
 .code-file-tab {
   display: inline-flex ;
