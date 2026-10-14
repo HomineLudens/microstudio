@@ -480,7 +480,7 @@ this.Editor = class Editor extends Manager {
   }
 
   updateHoverValue(event) {
-    var column, expression, identifier, j, len, line, match, mouse, position, ref, ref1, ref2, regex, token, token_end, tokens;
+    var column, expression, identifier, j, len, line, m2, match, mouse, offset, position, ref, ref1, ref2, regex, re2, segment_end, text, token, token_end, tokens;
     if (!((ref = this.app.project) != null ? (ref1 = ref.language) != null ? ref1.startsWith("microscript") : void 0 : void 0)) {
       return this.clearHoverValue();
     }
