@@ -28,6 +28,15 @@ this.Editor = class Editor extends Manager {
     //enableBasicAutocompletion: true
     //enableSnippets: true
     //enableLiveAutocompletion: true
+    this.hover_value_tooltip = document.createElement("div");
+    this.hover_value_tooltip.classList.add("code-hover-value");
+    document.body.appendChild(this.hover_value_tooltip);
+    this.editor.on("mousemove", (event) => {
+      return this.updateHoverValue(event);
+    });
+    this.editor.on("mouseout", () => {
+      return this.clearHoverValue();
+    });
     this.update_delay = 50;
     this.update_time = 0;
     setInterval((() => {
@@ -468,6 +477,155 @@ this.Editor = class Editor extends Manager {
   hideValueToolButtons() {
     this.color_tool_button.style.display = "none";
     return this.number_tool_button.style.display = "none";
+  }
+
+  updateHoverValue(event) {
+    var column, expression, identifier, j, len, line, match, mouse, position, ref, ref1, ref2, regex, token, token_end, tokens;
+    if (!((ref = this.app.project) != null ? (ref1 = ref.language) != null ? ref1.startsWith("microscript") : void 0 : void 0)) {
+      return this.clearHoverValue();
+    }
+    if (document.getElementById("runiframe") == null) {
+      return this.clearHoverValue();
+    }
+    if (((ref2 = this.app.debug) != null ? ref2.watch : void 0) == null) {
+      return this.clearHoverValue();
+    }
+    position = typeof event.getDocumentPosition === "function" ? event.getDocumentPosition() : void 0;
+    if (position == null) {
+      return this.clearHoverValue();
+    }
+    tokens = this.editor.getSession().getTokens(position.row);
+    column = 0;
+    identifier = false;
+    for (j = 0, len = tokens.length; j < len; j++) {
+      token = tokens[j];
+      token_end = column + token.value.length;
+      if (position.column >= column && position.column < token_end) {
+        identifier = token.type === "identifier";
+        break;
+      }
+      column = token_end;
+    }
+    if (!identifier) {
+      return this.clearHoverValue();
+    }
+    line = this.editor.session.getLine(position.row);
+    expression = null;
+    match = null;
+    regex = /[a-zA-Z_$][a-zA-Z0-9_$]*(?:\s*\.\s*[a-zA-Z_$][a-zA-Z0-9_$]*)*/g;
+    while (match = regex.exec(line)) {
+      if (position.column >= match.index && position.column < match.index + match[0].length) {
+        expression = match[0].replace(/\s/g, "");
+        break;
+      }
+    }
+    if (expression == null) {
+      return this.clearHoverValue();
+    }
+    mouse = event.domEvent || event;
+    this.hover_value_tooltip.style.left = (mouse.clientX + 12) + "px";
+    this.hover_value_tooltip.style.top = (mouse.clientY + 18) + "px";
+    if (expression === this.hover_value_expression) {
+      if (this.hover_watch_active || (this.hover_value_timer != null)) {
+        return;
+      }
+    } else {
+      this.clearHoverValue();
+      this.hover_value_expression = expression;
+      this.hover_value_tooltip.style.left = (mouse.clientX + 12) + "px";
+      this.hover_value_tooltip.style.top = (mouse.clientY + 18) + "px";
+    }
+    return this.hover_value_timer = setTimeout((() => {
+      if (this.hover_value_expression !== expression) {
+        return;
+      }
+      this.hover_value_timer = null;
+      this.hover_watch_active = true;
+      return this.app.debug.watch.watchHover(expression, (value) => {
+        if (this.hover_value_expression !== expression) {
+          return;
+        }
+        if (value != null) {
+          this.hover_value_tooltip.textContent = expression + " = " + this.formatHoverValue(value);
+          return this.hover_value_tooltip.style.display = "block";
+        } else {
+          this.hover_watch_active = false;
+          return this.hover_value_tooltip.style.display = "none";
+        }
+      });
+    }), 400);
+  }
+
+  clearHoverValue() {
+    var ref;
+    if (this.hover_value_timer != null) {
+      clearTimeout(this.hover_value_timer);
+    }
+    this.hover_value_timer = null;
+    this.hover_value_expression = null;
+    this.hover_watch_active = false;
+    if (this.hover_value_tooltip != null) {
+      this.hover_value_tooltip.style.display = "none";
+    }
+    if (((ref = this.app.debug) != null ? ref.watch : void 0) != null) {
+      return this.app.debug.watch.clearHoverWatch();
+    }
+  }
+
+  formatHoverValue(value, depth = 0) {
+    var item, key, keys, values;
+    if (depth > 2) {
+      return "…";
+    }
+    if ((value != null ? value.type : void 0) != null) {
+      switch (value.type) {
+        case "string":
+          return JSON.stringify(value.value);
+        case "number":
+          return "" + value.value;
+        case "function":
+          return "function()";
+        case "list":
+          return `[list:${value.length}]`;
+        case "object":
+          return value.value || "object";
+        default:
+          return "" + value.value;
+      }
+    }
+    if (Array.isArray(value)) {
+      values = (function() {
+        var j, len, ref, results;
+        ref = value.slice(0, 5);
+        results = [];
+        for (j = 0, len = ref.length; j < len; j++) {
+          item = ref[j];
+          results.push(this.formatHoverValue(item, depth + 1));
+        }
+        return results;
+      }).call(this);
+      if (value.length > 5) {
+        values.push("…");
+      }
+      return "[" + values.join(", ") + "]";
+    }
+    if (typeof value === "object" && (value != null)) {
+      keys = Object.keys(value).slice(0, 5);
+      values = (function() {
+        var j, len, results;
+        results = [];
+        for (j = 0, len = keys.length; j < len; j++) {
+          key = keys[j];
+          results.push(`${key}: ${this.formatHoverValue(value[key], depth + 1)}`);
+        }
+        return results;
+      }).call(this);
+      if (Object.keys(value).length > 5) {
+        values.push("…");
+      }
+      return "{" + values.join(", ") + "}";
+    }
+    return "" + value;
   }
 
   showValueTool() {
