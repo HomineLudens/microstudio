@@ -36,6 +36,7 @@ class @Editor extends Manager
       @updateHoverValue(event)
     @editor.on "mouseout",()=>
       @clearHoverValue()
+      @liveHelp()
 
     @update_delay = 50
     @update_time = 0
@@ -298,10 +299,14 @@ class @Editor extends Manager
     content.insertBefore button,content.firstChild
 
 
-  liveHelp:()->
+  liveHelp:(hover_line,hover_column)->
     return if not @show_help
-    line = @getCurrentLine().replace(":",".")
-    column = @editor.getSelectionRange().start.column
+    if hover_line?
+      line = hover_line.replace(":",".")
+      column = hover_column
+    else
+      line = @getCurrentLine().replace(":",".")
+      column = @editor.getSelectionRange().start.column
     suggest = @app.documentation.findSuggestMatch(line,column)
     content = document.querySelector("#help-window .content")
 
@@ -435,6 +440,7 @@ class @Editor extends Manager
     else
       @clearHoverValue()
       @hover_value_expression = expression
+      @liveHelp(expression,expression.length)
       @hover_value_tooltip.style.left = (mouse.clientX + 12) + "px"
       @hover_value_tooltip.style.top = (mouse.clientY + 18) + "px"
     @hover_value_timer = setTimeout (=>
