@@ -35,8 +35,7 @@ this.Editor = class Editor extends Manager {
       return this.updateHoverValue(event);
     });
     this.editor.on("mouseout", () => {
-      this.clearHoverValue();
-      return this.liveHelp();
+      return this.clearHoverValue();
     });
     this.update_delay = 50;
     this.update_time = 0;
@@ -363,18 +362,13 @@ this.Editor = class Editor extends Manager {
     return content.insertBefore(button, content.firstChild);
   }
 
-  liveHelp(hover_line, hover_column) {
+  liveHelp() {
     var c, column, content, help, j, len, line, md, res, suggest;
     if (!this.show_help) {
       return;
     }
-    if (hover_line != null) {
-      line = hover_line.replace(":", ".");
-      column = hover_column;
-    } else {
-      line = this.getCurrentLine().replace(":", ".");
-      column = this.editor.getSelectionRange().start.column;
-    }
+    line = this.getCurrentLine().replace(":", ".");
+    column = this.editor.getSelectionRange().start.column;
     suggest = this.app.documentation.findSuggestMatch(line, column);
     content = document.querySelector("#help-window .content");
     if (suggest.length === 0) {
@@ -548,7 +542,6 @@ this.Editor = class Editor extends Manager {
     } else {
       this.clearHoverValue();
       this.hover_value_expression = expression;
-      this.liveHelp(expression, expression.length);
       this.hover_value_tooltip.style.left = (mouse.clientX + 12) + "px";
       this.hover_value_tooltip.style.top = (mouse.clientY + 18) + "px";
     }
