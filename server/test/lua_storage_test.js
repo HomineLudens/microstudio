@@ -15,8 +15,18 @@ const values = {
     __microstudio_lua_table_v1__: true,
     entries: {}
   },
+  malformedLuaPair: {
+    __microstudio_lua_table_v1__: true,
+    entries: [["key"]]
+  },
+  malformedLuaKey: {
+    __microstudio_lua_table_v1__: true,
+    entries: [[NaN, "value"]]
+  },
   nullValue: null
 };
+values.cyclicLegacy = {};
+values.cyclicLegacy.self = values.cyclicLegacy;
 
 const storage = {
   get(name) {
@@ -69,6 +79,11 @@ runner.run(`
   assert(legacyArray[1] == nil and legacyArray[2] == "null")
   local legacyObject = storage:get("legacyObject")
   assert(legacyObject.name == "old" and legacyObject.nested.enabled)
+
+  local shared = { value = 9 }
+  storage:set("shared", { first = shared, second = shared })
+  local loadedShared = storage:get("shared")
+  assert(loadedShared.first.value == 9 and loadedShared.second.value == 9)
 `);
 
 assert.throws(
@@ -77,6 +92,10 @@ assert.throws(
 );
 assert.throws(
   () => runner.run(`storage:set("infinite", math.huge)`),
+  /non-finite numbers/
+);
+assert.throws(
+  () => runner.run(`storage:set("nan", 0 / 0)`),
   /non-finite numbers/
 );
 assert.throws(
@@ -94,6 +113,30 @@ assert.throws(
 assert.throws(
   () => runner.run(`storage:get("malformedLuaTable")`),
   /contains an invalid Lua table/
+);
+assert.throws(
+  () => runner.run(`storage:get("malformedLuaPair")`),
+  /contains an invalid Lua table/
+);
+assert.throws(
+  () => runner.run(`storage:get("malformedLuaKey")`),
+  /contains an invalid Lua table key/
+);
+assert.throws(
+  () => runner.run(`storage:get("cyclicLegacy")`),
+  /contains cyclic data/
+);
+assert.throws(
+  () => runner.run(`
+    local root = {}
+    local current = root
+    for index = 1, 101 do
+      current.child = {}
+      current = current.child
+    end
+    storage:set("too-deep", root)
+  `),
+  /nested deeper than 100 levels/
 );
 
 console.log("Lua storage table tests passed");

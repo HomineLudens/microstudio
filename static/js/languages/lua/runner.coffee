@@ -6,7 +6,11 @@ LUA_STORAGE_WRAPPER = """
     return value == value and value ~= math.huge and value ~= -math.huge
   end
 
-  local function toJS(value, active)
+  local function toJS(value, active, depth)
+    if depth > 100 then
+      error("storage:set cannot save tables nested deeper than 100 levels")
+    end
+
     local valueType = type(value)
     if valueType ~= "table" then
       if valueType == "function" or valueType == "userdata" or valueType == "thread" then
@@ -30,19 +34,15 @@ LUA_STORAGE_WRAPPER = """
     local index = 0
     for key, item in pairs(value) do
       local keyType = type(key)
-      local itemType = type(item)
       if keyType ~= "string" and keyType ~= "number" and keyType ~= "boolean" then
         error("storage:set only supports string, numeric, and boolean table keys")
-      end
-      if itemType ~= "string" and itemType ~= "number" and itemType ~= "boolean" and itemType ~= "table" then
-        error("storage:set cannot save functions, userdata, or threads")
       end
       if keyType == "number" and not isFiniteNumber(key) then
         error("storage:set cannot save non-finite numeric keys")
       end
       local pair = js.new(js.global.Array)
       pair[0] = key
-      pair[1] = toJS(item, active)
+      pair[1] = toJS(item, active, depth + 1)
       entries[index] = pair
       index = index + 1
     end
@@ -51,7 +51,10 @@ LUA_STORAGE_WRAPPER = """
     return result
   end
 
-  local function fromJS(value)
+  local function fromJS(value, active, depth)
+    if depth > 100 then
+      error("storage contains tables nested deeper than 100 levels")
+    end
     if value == nil or js.typeof(value) ~= "object" then
       return value
     end
@@ -60,6 +63,11 @@ LUA_STORAGE_WRAPPER = """
     if not isArray and js.tostring(value) == "null" then
       return nil
     end
+
+    if active[value] then
+      error("storage contains cyclic data")
+    end
+    active[value] = true
 
     local result = {}
     if value[tableMarker] == true then
@@ -77,28 +85,32 @@ LUA_STORAGE_WRAPPER = """
         if keyType ~= "string" and keyType ~= "number" and keyType ~= "boolean" then
           error("storage contains an invalid Lua table key")
         end
-        result[key] = fromJS(pair[1])
+        if keyType == "number" and not isFiniteNumber(key) then
+          error("storage contains an invalid Lua table key")
+        end
+        result[key] = fromJS(pair[1], active, depth + 1)
       end
     elseif isArray then
       for index = 0, value.length - 1 do
-        result[index + 1] = fromJS(value[index])
+        result[index + 1] = fromJS(value[index], active, depth + 1)
       end
     else
       local keys = js.global.Object:keys(value)
       for index = 0, keys.length - 1 do
         local key = keys[index]
-        result[key] = fromJS(value[key])
+        result[key] = fromJS(value[key], active, depth + 1)
       end
     end
+    active[value] = nil
     return result
   end
 
   storage = {
     get = function(self, name)
-      return fromJS(jsStorage:get(name))
+      return fromJS(jsStorage:get(name), {}, 0)
     end,
     set = function(self, name, value)
-      return jsStorage:set(name, toJS(value, {}))
+      return jsStorage:set(name, toJS(value, {}, 0))
     end
   }
 """
