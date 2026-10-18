@@ -58,7 +58,8 @@ class @Runner
           return value
         end
 
-        if js.tostring(value) == "null" then
+        local isArray = js.instanceof(value, js.global.Array)
+        if not isArray and js.tostring(value) == "null" then
           return nil
         end
 
@@ -69,7 +70,7 @@ class @Runner
             local pair = entries[index]
             result[pair[0]] = fromJS(pair[1])
           end
-        elseif js.instanceof(value, js.global.Array) then
+        elseif isArray then
           for index = 0, value.length - 1 do
             result[index + 1] = fromJS(value[index])
           end
