@@ -27,6 +27,12 @@ const values = {
 };
 values.cyclicLegacy = {};
 values.cyclicLegacy.self = values.cyclicLegacy;
+values.deepLegacy = {};
+let current = values.deepLegacy;
+for (let index = 0; index < 101; index++) {
+  current.child = {};
+  current = current.child;
+}
 
 const storage = {
   get(name) {
@@ -125,6 +131,10 @@ assert.throws(
 assert.throws(
   () => runner.run(`storage:get("cyclicLegacy")`),
   /contains cyclic data/
+);
+assert.throws(
+  () => runner.run(`storage:get("deepLegacy")`),
+  /tables nested deeper than 100 levels/
 );
 assert.throws(
   () => runner.run(`
