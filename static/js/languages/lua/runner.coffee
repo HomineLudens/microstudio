@@ -59,11 +59,11 @@ LUA_STORAGE_WRAPPER = """
       return value
     end
 
-    local isArray = js.instanceof(value, js.global.Array)
-    if not isArray and js.tostring(value) == "null" then
+    if value == js.null then
       return nil
     end
 
+    local isArray = js.instanceof(value, js.global.Array)
     if active[value] then
       error("storage contains cyclic data")
     end

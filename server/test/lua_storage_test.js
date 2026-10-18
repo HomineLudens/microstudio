@@ -7,6 +7,7 @@ const values = {
   legacyArray: [null, "null"],
   legacyObject: {
     name: "old",
+    toString: 3,
     nested: {
       enabled: true
     }
@@ -62,6 +63,7 @@ runner.run(`
   local data = {
     clicks = 4,
     runs = 2,
+    [1] = "array",
     nested = { enabled = true, list = { "a", "b" } },
     [7] = "number",
     [false] = "boolean",
@@ -71,6 +73,7 @@ runner.run(`
   local loaded = storage:get("data")
   assert(type(loaded) == "table")
   assert(loaded.clicks == 4 and loaded.runs == 2)
+  assert(loaded[1] == "array")
   assert(loaded.nested.enabled and loaded.nested.list[2] == "b")
   assert(loaded[7] == "number" and loaded[false] == "boolean")
   assert(loaded["7"] == "string")
@@ -84,7 +87,8 @@ runner.run(`
   local legacyArray = storage:get("legacyArray")
   assert(legacyArray[1] == nil and legacyArray[2] == "null")
   local legacyObject = storage:get("legacyObject")
-  assert(legacyObject.name == "old" and legacyObject.nested.enabled)
+  assert(legacyObject.name == "old" and legacyObject.toString == 3 and legacyObject.nested.enabled)
+  assert(storage:get("missing") == 0)
 
   local shared = { value = 9 }
   storage:set("shared", { first = shared, second = shared })
