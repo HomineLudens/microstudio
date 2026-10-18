@@ -10,7 +10,7 @@ LUA_STORAGE_WRAPPER = """
     local valueType = type(value)
     if valueType ~= "table" then
       if valueType == "function" or valueType == "userdata" or valueType == "thread" then
-        return nil
+        error("storage:set cannot save functions, userdata, or threads")
       end
       if valueType == "number" and not isFiniteNumber(value) then
         error("storage:set cannot save non-finite numbers")
@@ -31,17 +31,20 @@ LUA_STORAGE_WRAPPER = """
     for key, item in pairs(value) do
       local keyType = type(key)
       local itemType = type(item)
+      if keyType ~= "string" and keyType ~= "number" and keyType ~= "boolean" then
+        error("storage:set only supports string, numeric, and boolean table keys")
+      end
+      if itemType ~= "string" and itemType ~= "number" and itemType ~= "boolean" and itemType ~= "table" then
+        error("storage:set cannot save functions, userdata, or threads")
+      end
       if keyType == "number" and not isFiniteNumber(key) then
         error("storage:set cannot save non-finite numeric keys")
       end
-      if (keyType == "string" or keyType == "number" or keyType == "boolean") and
-          (itemType == "string" or itemType == "number" or itemType == "boolean" or itemType == "table") then
-        local pair = js.new(js.global.Array)
-        pair[0] = key
-        pair[1] = toJS(item, active)
-        entries[index] = pair
-        index = index + 1
-      end
+      local pair = js.new(js.global.Array)
+      pair[0] = key
+      pair[1] = toJS(item, active)
+      entries[index] = pair
+      index = index + 1
     end
 
     active[value] = nil
@@ -61,16 +64,27 @@ LUA_STORAGE_WRAPPER = """
     local result = {}
     if value[tableMarker] == true then
       local entries = value.entries
+      if not js.instanceof(entries, js.global.Array) then
+        error("storage contains an invalid Lua table")
+      end
       for index = 0, entries.length - 1 do
         local pair = entries[index]
-        result[pair[0]] = fromJS(pair[1])
+        if not js.instanceof(pair, js.global.Array) or pair.length ~= 2 then
+          error("storage contains an invalid Lua table")
+        end
+        local key = pair[0]
+        local keyType = type(key)
+        if keyType ~= "string" and keyType ~= "number" and keyType ~= "boolean" then
+          error("storage contains an invalid Lua table key")
+        end
+        result[key] = fromJS(pair[1])
       end
     elseif isArray then
       for index = 0, value.length - 1 do
         result[index + 1] = fromJS(value[index])
       end
     else
-      local keys = js.global.Object.keys(value)
+      local keys = js.global.Object:keys(value)
       for index = 0, keys.length - 1 do
         local key = keys[index]
         result[key] = fromJS(value[key])
