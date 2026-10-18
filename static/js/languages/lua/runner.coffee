@@ -13,6 +13,85 @@ class @Runner
 
     src += """print = function(text) js.global.ctx:print(text) end\n"""
     src += "new = js.new\n"
+    src += """
+      local jsStorage = storage
+      local tableMarker = "__microstudio_lua_table_v1__"
+
+      local function toJS(value, active)
+        local valueType = type(value)
+        if valueType ~= "table" then
+          if valueType == "function" or valueType == "userdata" or valueType == "thread" then
+            return nil
+          end
+          return value
+        end
+
+        if active[value] then
+          error("storage:set cannot save cyclic tables")
+        end
+        active[value] = true
+
+        local result = js.new(js.global.Object)
+        result[tableMarker] = true
+        local entries = js.new(js.global.Array)
+        result.entries = entries
+        local index = 0
+        for key, item in pairs(value) do
+          local keyType = type(key)
+          local itemType = type(item)
+          if (keyType == "string" or keyType == "number" or keyType == "boolean") and
+              (itemType == "string" or itemType == "number" or itemType == "boolean" or itemType == "table") then
+            local pair = js.new(js.global.Array)
+            pair[0] = key
+            pair[1] = toJS(item, active)
+            entries[index] = pair
+            index = index + 1
+          end
+        end
+
+        active[value] = nil
+        return result
+      end
+
+      local function fromJS(value)
+        if value == nil or js.typeof(value) ~= "object" then
+          return value
+        end
+
+        if js.tostring(value) == "null" then
+          return nil
+        end
+
+        local result = {}
+        if value[tableMarker] == true then
+          local entries = value.entries
+          for index = 0, entries.length - 1 do
+            local pair = entries[index]
+            result[pair[0]] = fromJS(pair[1])
+          end
+        elseif js.instanceof(value, js.global.Array) then
+          for index = 0, value.length - 1 do
+            result[index + 1] = fromJS(value[index])
+          end
+        else
+          local keys = js.global.Object.keys(value)
+          for index = 0, keys.length - 1 do
+            local key = keys[index]
+            result[key] = fromJS(value[key])
+          end
+        end
+        return result
+      end
+
+      storage = {
+        get = function(self, name)
+          return fromJS(jsStorage:get(name))
+        end,
+        set = function(self, name, value)
+          return jsStorage:set(name, toJS(value, {}))
+        end
+      }
+    """
     @run(src)
 
   run:(program,name="")->
